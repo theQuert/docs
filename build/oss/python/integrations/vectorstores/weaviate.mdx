@@ -1,6 +1,23 @@
 ---
-title: Weaviate
+title: Weaviate integration
+description: Integrate with the Weaviate vector store using LangChain Python.
+integration:
+  name: Weaviate
+  pypi: langchain-weaviate
+  featured: true
+  delete_by_id: true
+  filtering: true
+  search_by_vector: true
+  search_with_score: true
+  async_api: true
+  passes_standard_tests: false
+  multi_tenancy: true
+  ids_in_add_documents: true
 ---
+
+
+
+import LangchainCommunityUnmaintained from '/snippets/python/oss/langchain-community-unmaintained.mdx';
 
 This notebook covers how to get started with the Weaviate vector store in LangChain, using the `langchain-weaviate` package.
 
@@ -12,9 +29,9 @@ To use this integration, you need to have a running Weaviate database instance.
 
 This module requires Weaviate `1.23.7` or higher. However, we recommend you use the latest version of Weaviate.
 
-## Connecting to Weaviate
+## Connecting to weaviate
 
-In this notebook, we assume that you have a local instance of Weaviate running on `http://localhost:8080` and port 50051 open for [gRPC traffic](https://weaviate.io/blog/grpc-performance-improvements). So, we will connect to Weaviate with:
+In this notebook, we assume that you have a local instance of Weaviate running on `http://localhost:8080` and port 50051 open for [gRPC traffic](https://weaviate.io/blog/grpc-performance-improvements). We will connect to Weaviate with:
 
 ```python
 weaviate_client = weaviate.connect_to_local()
@@ -56,11 +73,11 @@ store = WeaviateVectorStore(
 # pip install openai tiktoken langchain
 ```
 
-## Environment Setup
+## Environment setup
 
 This notebook uses the OpenAI API through `OpenAIEmbeddings`. We suggest obtaining an OpenAI API key and export it as an environment variable with the name `OPENAI_API_KEY`.
 
-Once this is done, your OpenAI API key will be read automatically. If you are new to environment variables, read more about them [here](https://docs.python.org/3/library/os.html#os.environ) or in [this guide](https://www.twilio.com/en-us/blog/environment-variables-python).
+Once this is done, your OpenAI API key will be read automatically. If you are new to environment variables, read more about them in the [Python os.environ documentation](https://docs.python.org/3/library/os.html#os.environ) or in [this guide](https://www.twilio.com/en-us/blog/environment-variables-python).
 
 # Usage
 
@@ -71,6 +88,8 @@ Here is an example of how to find objects by similarity to a query, from data im
 ### Step 1: Data import
 
 First, we will create data to add to `Weaviate` by loading and chunking the contents of a long text file.
+
+<LangchainCommunityUnmaintained />
 
 ```python
 from langchain_community.document_loaders import TextLoader
@@ -200,7 +219,7 @@ It won’t loo...
 
 A hybrid search combines a vector and a keyword search, with `alpha` as the weight of the vector search. The `similarity_search` function allows you to pass additional arguments as kwargs. See this [reference doc](https://weaviate.io/developers/weaviate/api/graphql/search-operators#hybrid) for the available arguments.
 
-So, you can perform a pure keyword search by adding `alpha=0` as shown below:
+You can perform a pure keyword search by adding `alpha=0` as shown below:
 
 ```python
 docs = db.similarity_search(query, alpha=0)
@@ -223,7 +242,7 @@ WCS instances, for example, are configured to persist data indefinitely, and Doc
 
 To use multi-tenancy, the vector store need to be aware of the `tenant` parameter.
 
-So when adding any data, provide the `tenant` parameter as shown below.
+When adding any data, provide the `tenant` parameter as shown below.
 
 ```python
 db_with_mt = WeaviateVectorStore.from_documents(
@@ -303,7 +322,7 @@ Two well-known applications for combining LLMs and vector stores are:
 - Question answering
 - Retrieval-augmented generation (RAG)
 
-### Question Answering with Sources
+### Question answering with sources
 
 Question answering in langchain can be enhanced by the use of vector stores. Let's see how this can be done.
 
@@ -368,7 +387,7 @@ chain(
  'sources': '31-pl'}
 ```
 
-### Retrieval-Augmented Generation
+### Retrieval-Augmented generation
 
 Another very popular application of combining LLMs and vector stores is retrieval-augmented generation (RAG). This is a technique that uses a retriever to find relevant information from a vector store, and then uses an LLM to provide an output based on the retrieved data and a prompt.
 
@@ -444,7 +463,7 @@ rag_chain.invoke("What did the president say about Justice Breyer")
 "The president honored Justice Stephen Breyer for his service to the country as an Army veteran, Constitutional scholar, and retiring Justice of the United States Supreme Court. The president also mentioned nominating Circuit Court of Appeals Judge Ketanji Brown Jackson to continue Justice Breyer's legacy of excellence. The president expressed gratitude towards Justice Breyer and highlighted the importance of nominating someone to serve on the United States Supreme Court."
 ```
 
-But note that since the template is upto you to construct, you can customize it to your needs.
+Note that since the template is up to you to construct, you can customize it to your needs.
 
 ### Wrap-up & resources
 
@@ -454,9 +473,11 @@ This integration allows Weaviate to be used with LangChain to enhance the capabi
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/python/integrations/vectorstores/weaviate.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

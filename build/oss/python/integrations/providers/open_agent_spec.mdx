@@ -1,5 +1,6 @@
 ---
-title: Open Agent Spec
+title: "Open agent spec integrations"
+description: "Integrate with Open agent spec using LangChain Python."
 ---
 
 This page covers all LangChain integrations with [Open Agent Specification](https://oracle.github.io/agent-spec).
@@ -15,7 +16,7 @@ You can subsequently install the LangGraph Adapter through its extra dependency:
 pip install "pyagentspec[langgraph]"
 ```
 
-## LangGraph Adapter
+## LangGraph adapter
 The **LangGraph Adapter** allows for instantiation and execution of Open Agent Spec configurations using LangGraph.
 The `AgentSpecLoader` class is responsible for loading Agent Spec configurations (in JSON or YAML format) and instantiating them as runnable agents within the LangGraph environment. It also includes support for mapping of declared tools to corresponding Python functions.
 
@@ -23,7 +24,7 @@ The following example shows the creation of a simple Agent Spec Agent and its co
 Starting from the Agent Spec Agent creation:
 
 ```python
-# Create a Agent Spec agent
+# Create an Agent Spec agent
 from pyagentspec.agent import Agent
 from pyagentspec.llms.openaicompatibleconfig import OpenAiCompatibleConfig
 from pyagentspec.property import FloatProperty
@@ -85,9 +86,11 @@ async def main():
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/python/integrations/providers/open_agent_spec.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

@@ -1,9 +1,11 @@
 ---
-title: Built-in middleware
+title: Prebuilt middleware
 description: Prebuilt middleware for common agent use cases
 ---
 
-LangChain provides prebuilt middleware for common use cases. Each middleware is production-ready and configurable for your specific needs.
+import RubricConfigurePy from '/snippets/javascript/code-samples/rubric-configure-py.mdx';
+
+LangChain and [Deep Agents](/oss/javascript/deepagents/overview) provide prebuilt middleware for common use cases. Each middleware is production-ready and configurable for your specific needs.
 
 ## Provider-agnostic middleware
 
@@ -25,6 +27,9 @@ The following middleware work with any LLM provider:
 | [Model retry](#model-retry) | Automatically retry failed model calls with exponential backoff. |
 | [LLM tool emulator](#llm-tool-emulator) | Emulate tool execution using an LLM for testing purposes. |
 | [Context editing](#context-editing) | Manage conversation context by trimming or clearing tool uses. |
+| [Provider tool search](#provider-tool-search) | Defer tools behind providers' server-side tool search, surfacing them on demand. |
+| [Filesystem](#filesystem-middleware) | Provide agents with a filesystem for storing context and long-term memories. |
+| [Subagent middleware](#subagent) | Add the ability to spawn subagents. |
 
 
 
@@ -35,17 +40,21 @@ Automatically summarize conversation history when approaching token limits, pres
 - Multi-turn dialogues with extensive history.
 - Applications where preserving full conversation context matters.
 
+<Note>
+    Summarization is text-oriented context compression. It does not resize, downsample, or otherwise compress image/audio/video payloads. Recent messages retained by `keep` still include their original multimodal blocks, while older multimodal messages that are summarized are represented only by the generated text summary. For image-heavy applications, store media in a filesystem or object store and pass URLs or file references through message history.
+</Note>
+
 
 
 ```typescript
 import { createAgent, summarizationMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [weatherTool, calculatorTool],
   middleware: [
     summarizationMiddleware({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       trigger: { tokens: 4000 },
       keep: { messages: 20 },
     }),
@@ -72,7 +81,7 @@ const agent = createAgent({
 </Tip>
 
 <ParamField body="model" type="string | BaseChatModel" required>
-    Model for generating summaries. Can be a model identifier string (e.g., `'openai:gpt-4o-mini'`) or a `BaseChatModel` instance.
+    Model for generating summaries. Can be a model identifier string (e.g., `'openai:gpt-5.4-mini'`) or a `BaseChatModel` instance.
 </ParamField>
 
 <ParamField body="trigger" type="object | object[]">
@@ -129,9 +138,10 @@ const agent = createAgent({
 The summarization middleware monitors message token counts and automatically summarizes older messages when thresholds are reached.
 
 **Trigger conditions** control when summarization runs:
-- Single condition object (specified must be met)
-- Array of conditions (any condition must be met - OR logic)
-- Each condition can use `fraction` (of model's context size), `tokens` (absolute count), or `messages` (message count)
+- A single threshold triggers when that threshold is met
+- A trigger clause with multiple thresholds triggers only when all thresholds are met (AND logic)
+- A list of trigger conditions triggers when any item is met (OR logic)
+- Each threshold can use `fraction` (of model's context size), `tokens` (absolute count), or `messages` (message count)
 
 **Keep condition** control how much context to preserve (specify exactly one):
 - `fraction` - Fraction of model's context size to keep
@@ -145,11 +155,11 @@ import { createAgent, summarizationMiddleware } from "langchain";
 
 // Single condition
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [weatherTool, calculatorTool],
   middleware: [
     summarizationMiddleware({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       trigger: { tokens: 4000, messages: 10 },
       keep: { messages: 20 },
     }),
@@ -158,11 +168,11 @@ const agent = createAgent({
 
 // Multiple conditions
 const agent2 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [weatherTool, calculatorTool],
   middleware: [
     summarizationMiddleware({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       trigger: [
         { tokens: 3000, messages: 6 },
       ],
@@ -173,11 +183,11 @@ const agent2 = createAgent({
 
 // Using fractional limits
 const agent3 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [weatherTool, calculatorTool],
   middleware: [
     summarizationMiddleware({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       trigger: { fraction: 0.8 },
       keep: { fraction: 0.3 },
     }),
@@ -199,7 +209,7 @@ Pause agent execution for human approval, editing, or rejection of tool calls be
 
 
 <Warning>
-    Human-in-the-loop middleware requires a [checkpointer](/oss/javascript/langgraph/persistence#checkpoints) to maintain state across interruptions.
+    Human-in-the-loop middleware requires a [checkpointer](/oss/javascript/langgraph/checkpointers#checkpoints) to maintain state across interruptions.
 </Warning>
 
 
@@ -218,7 +228,7 @@ function sendEmailTool(recipient: string, subject: string, body: string): string
 }
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [readEmailTool, sendEmailTool],
   middleware: [
     humanInTheLoopMiddleware({
@@ -240,7 +250,7 @@ const agent = createAgent({
 
 
 
-<Callout icon="circle-play" iconType="solid">
+<Callout icon="player-play" iconType="solid">
     Watch this [video guide](https://www.youtube.com/watch?v=tdOeUVERukA) demonstrating Human-in-the-loop middleware behavior.
 </Callout>
 
@@ -260,7 +270,7 @@ import { createAgent, modelCallLimitMiddleware } from "langchain";
 import { MemorySaver } from "@langchain/langgraph";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   checkpointer: new MemorySaver(), // Required for thread limiting
   tools: [],
   middleware: [
@@ -276,7 +286,7 @@ const agent = createAgent({
 
 
 
-<Callout icon="circle-play" iconType="solid">
+<Callout icon="player-play" iconType="solid">
     Watch this [video guide](https://www.youtube.com/watch?v=x5jLQTFXR0Y) demonstrating Model Call Limit middleware behavior.
 </Callout>
 
@@ -316,7 +326,7 @@ Control agent execution by limiting the number of tool calls, either globally ac
 import { createAgent, toolCallLimitMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, databaseTool],
   middleware: [
     toolCallLimitMiddleware({ threadLimit: 20, runLimit: 10 }),
@@ -332,7 +342,7 @@ const agent = createAgent({
 
 
 
-<Callout icon="circle-play" iconType="solid">
+<Callout icon="player-play" iconType="solid">
     Watch this [video guide](https://www.youtube.com/watch?v=oL6am5UqODY) demonstrating Tool Call Limit middleware behavior.
 </Callout>
 
@@ -388,7 +398,7 @@ const databaseLimiter = toolCallLimitMiddleware({ toolName: "query_database", th
 const strictLimiter = toolCallLimitMiddleware({ toolName: "scrape_webpage", runLimit: 2, exitBehavior: "error" });
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, databaseTool, scraperTool],
   middleware: [globalLimiter, searchLimiter, databaseLimiter, strictLimiter],
 });
@@ -412,11 +422,11 @@ Automatically fallback to alternative models when the primary model fails. Model
 import { createAgent, modelFallbackMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     modelFallbackMiddleware(
-      "gpt-4o-mini",
+      "gpt-5.4-mini",
       "claude-3-5-sonnet-20241022"
     ),
   ],
@@ -461,7 +471,7 @@ Detect and handle Personally Identifiable Information (PII) in conversations usi
 import { createAgent, piiMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     piiMiddleware("email", { strategy: "redact", applyToInput: true }),
@@ -489,7 +499,7 @@ import { createAgent, piiMiddleware, type PIIMatch } from "langchain";
 
 // Method 1: Regex pattern string
 const agent1 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     piiMiddleware("api_key", {
@@ -501,7 +511,7 @@ const agent1 = createAgent({
 
 // Method 2: RegExp object
 const agent2 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     piiMiddleware("phone_number", {
@@ -533,7 +543,7 @@ function detectSSN(content: string): PIIMatch[] {
 }
 
 const agent3 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     piiMiddleware("ssn", {
@@ -635,7 +645,7 @@ Equip agents with task planning and tracking capabilities for complex multi-step
 import { createAgent, todoListMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [readFile, writeFile, runTests],
   middleware: [todoListMiddleware()],
 });
@@ -644,7 +654,7 @@ const agent = createAgent({
 
 
 
-<Callout icon="circle-play" iconType="solid">
+<Callout icon="player-play" iconType="solid">
     Watch this [video guide](https://www.youtube.com/watch?v=dwvhZ1z_Pas) demonstrating To-do List middleware behavior.
 </Callout>
 
@@ -657,7 +667,6 @@ No configuration options available (uses defaults).
 
 
 </Accordion>
-
 
 ### LLM tool selector
 
@@ -675,11 +684,11 @@ This middleware uses structured output to ask an LLM which tools are most releva
 import { createAgent, llmToolSelectorMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [tool1, tool2, tool3, tool4, tool5, ...],
   middleware: [
     llmToolSelectorMiddleware({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       maxTools: 3,
       alwaysInclude: ["search"],
     }),
@@ -693,7 +702,7 @@ const agent = createAgent({
 
 
 <ParamField body="model" type="string | BaseChatModel">
-    Model for tool selection. Can be a model identifier string (e.g., `'openai:gpt-4o-mini'`) or a `BaseChatModel` instance. Defaults to the agent's main model.
+    Model for tool selection. Can be a model identifier string (e.g., `'openai:gpt-5.4-mini'`) or a `BaseChatModel` instance. Defaults to the agent's main model.
 </ParamField>
 
 <ParamField body="systemPrompt" type="string">
@@ -712,6 +721,10 @@ const agent = createAgent({
 </Accordion>
 
 
+### Tool error
+
+
+
 ### Tool retry
 
 Automatically retry failed tool calls with configurable exponential backoff. Tool retry is useful for the following:
@@ -722,13 +735,13 @@ Automatically retry failed tool calls with configurable exponential backoff. Too
 
 
 
-**API reference:** [`toolRetryMiddleware`](https://reference.langchain.com/javascript/functions/langchain.index.toolRetryMiddleware.html)
+**API reference:** [`toolRetryMiddleware`](https://reference.langchain.com/javascript/langchain/index/toolRetryMiddleware)
 
 ```typescript
 import { createAgent, toolRetryMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, databaseTool],
   middleware: [
     toolRetryMiddleware({
@@ -812,7 +825,7 @@ import { z } from "zod";
 
 // Basic usage with default settings (2 retries, exponential backoff)
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, databaseTool],
   middleware: [toolRetryMiddleware()],
 });
@@ -894,13 +907,13 @@ Automatically retry failed model calls with configurable exponential backoff. Mo
 
 
 
-**API reference:** [`modelRetryMiddleware`](https://reference.langchain.com/javascript/functions/langchain.index.modelRetryMiddleware.html)
+**API reference:** [`modelRetryMiddleware`](https://reference.langchain.com/javascript/langchain/index/modelRetryMiddleware)
 
 ```typescript
 import { createAgent, modelRetryMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, databaseTool],
   middleware: [
     modelRetryMiddleware({
@@ -962,7 +975,7 @@ import { createAgent, modelRetryMiddleware } from "langchain";
 
 // Basic usage with default settings (2 retries, exponential backoff)
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool],
   middleware: [modelRetryMiddleware()],
 });
@@ -1046,7 +1059,7 @@ Emulate tool execution using an LLM for testing purposes, replacing actual tool 
 import { createAgent, toolEmulatorMiddleware } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [getWeather, searchDatabase, sendEmail],
   middleware: [
     toolEmulatorMiddleware(), // Emulate all tools
@@ -1064,7 +1077,7 @@ const agent = createAgent({
 </ParamField>
 
 <ParamField body="model" type="string | BaseChatModel">
-    Model to use for generating emulated tool responses. Can be a model identifier string (e.g., `'anthropic:claude-sonnet-4-5-20250929'`) or a `BaseChatModel` instance. Defaults to the agent's model if not specified.
+    Model to use for generating emulated tool responses. Can be a model identifier string (e.g., `'google_genai:gemini-3.6-flash'`) or a `BaseChatModel` instance. Defaults to the agent's model if not specified.
 </ParamField>
 
 
@@ -1104,14 +1117,14 @@ const sendEmail = tool(
 
 // Emulate all tools (default behavior)
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [getWeather, sendEmail],
   middleware: [toolEmulatorMiddleware()],
 });
 
 // Emulate specific tools by name
 const agent2 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [getWeather, sendEmail],
   middleware: [
     toolEmulatorMiddleware({
@@ -1122,7 +1135,7 @@ const agent2 = createAgent({
 
 // Emulate specific tools by passing tool instances
 const agent3 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [getWeather, sendEmail],
   middleware: [
     toolEmulatorMiddleware({
@@ -1133,11 +1146,11 @@ const agent3 = createAgent({
 
 // Use custom model for emulation
 const agent5 = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [getWeather, sendEmail],
   middleware: [
     toolEmulatorMiddleware({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-sonnet-4-6",
     }),
   ],
 });
@@ -1160,7 +1173,7 @@ Manage conversation context by clearing older tool call outputs when token limit
 import { createAgent, contextEditingMiddleware, ClearToolUsesEdit } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [],
   middleware: [
     contextEditingMiddleware({
@@ -1181,10 +1194,10 @@ const agent = createAgent({
 
 
 <ParamField body="edits" type="ContextEdit[]" default="[new ClearToolUsesEdit()]">
-    Array of [`ContextEdit`](https://reference.langchain.com/javascript/interfaces/langchain.index.ContextEdit.html) strategies to apply
+    Array of [`ContextEdit`](https://reference.langchain.com/javascript/langchain/index/ContextEdit) strategies to apply
 </ParamField>
 
-**[`ClearToolUsesEdit`](https://reference.langchain.com/javascript/classes/langchain.index.ClearToolUsesEdit.html) options:**
+**[`ClearToolUsesEdit`](https://reference.langchain.com/javascript/langchain/index/ClearToolUsesEdit) options:**
 
 <ParamField body="triggerTokens" type="number" default="100000">
     Token count that triggers the edit. When the conversation exceeds this token count, older tool outputs will be cleared.
@@ -1229,7 +1242,7 @@ The middleware applies context editing strategies when token limits are reached.
 import { createAgent, contextEditingMiddleware, ClearToolUsesEdit } from "langchain";
 
 const agent = createAgent({
-  model: "gpt-4o",
+  model: "gpt-5.5",
   tools: [searchTool, calculatorTool, databaseTool],
   middleware: [
     contextEditingMiddleware({
@@ -1252,6 +1265,254 @@ const agent = createAgent({
 
 
 
+### Provider tool search
+
+Defer selected tools behind model providers' server-side tool search, so the model discovers them on demand instead of receiving every tool schema up front. Provider tool search is useful for:
+
+- Reducing context bloat when using many tools.
+- Improving tool selection accuracy by surfacing only relevant tools.
+
+<Note>
+    Requires a model with server-side tool search support: Anthropic (Claude Sonnet 4+/Opus 4+/Haiku 4.5+) or OpenAI (gpt-5.5+). Other providers throw an error.
+</Note>
+
+**API reference:** [`providerToolSearchMiddleware`](https://reference.langchain.com/javascript/langchain/index/providerToolSearchMiddleware)
+
+```typescript
+import { createAgent, providerToolSearchMiddleware } from "langchain";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+
+const getWeather = tool(async () => "Sunny, 22C", {
+  name: "get_weather",
+  description: "Get the current weather for a city",
+  schema: z.object({ city: z.string() }),
+});
+
+const lookupOrderStatus = tool(async () => "OUT_FOR_DELIVERY", {
+  name: "lookup_order_status",
+  description: "Look up the current delivery status of a customer order by ID",
+  schema: z.object({ orderId: z.string() }),
+});
+
+const nicheTools = [lookupOrderStatus];
+
+const agent = createAgent({
+  model: "anthropic:claude-opus-4-8",
+  tools: [getWeather, ...nicheTools],
+  middleware: [
+    providerToolSearchMiddleware({ searchableTools: nicheTools }),
+  ],
+});
+```
+
+<Accordion title="Configuration options">
+
+<ParamField body="searchableTools" type="(string | StructuredToolInterface)[]">
+    Tools to defer behind the provider's tool search, given by name or instance. Deferred tools are withheld from the model until its search surfaces them. Tools constructed with `extras.defer_loading: true` are deferred regardless of this option; if `searchableTools` is omitted, only those pre-marked tools are deferred.
+</ParamField>
+
+</Accordion>
+
+<Accordion title="Full example">
+
+The middleware opts-in all tools included in the `searchableTools` for deferral and search. A tool can also opt into deferral at construction time by setting `extras.defer_loading: true`
+
+```typescript
+import { createAgent, providerToolSearchMiddleware } from "langchain";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+
+// Marked `defer_loading` at construction, so it's deferred on its own —
+// no need to list it in `searchableTools`.
+const sendEmail = tool(async () => "sent", {
+  name: "send_email",
+  description: "Send an email",
+  schema: z.object({ to: z.string() }),
+  extras: { defer_loading: true },
+});
+
+const agent = createAgent({
+  model: "anthropic:claude-opus-4-8",
+  tools: [sendEmail],
+  middleware: [providerToolSearchMiddleware()],
+});
+```
+
+</Accordion>
+
+
+
+
+### Filesystem middleware
+
+Context engineering is a main challenge in building effective agents. This is particularly difficult when using tools that return variable-length results (for example, `web_search` and RAG), as long tool results can quickly fill your context window.
+
+`FilesystemMiddleware` from [Deep Agents](/oss/javascript/deepagents/overview) provides four tools for interacting with both short-term and long-term memory:
+
+- `ls`: List the files in the filesystem
+- `read_file`: Read an entire file or a certain number of lines from a file
+- `write_file`: Write a new file to the filesystem
+- `edit_file`: Edit an existing file in the filesystem
+
+
+
+```typescript
+import { createAgent } from "langchain";
+import { createFilesystemMiddleware } from "deepagents";
+
+// FilesystemMiddleware is included by default in createDeepAgent
+// You can customize it if building a custom agent
+const agent = createAgent({
+  model: "claude-sonnet-4-6",
+  middleware: [
+    createFilesystemMiddleware({
+      backend: undefined,  // Optional: custom backend (defaults to StateBackend)
+      systemPrompt: "Write to the filesystem when...",  // Optional custom system prompt override
+      customToolDescriptions: {
+        ls: "Use the ls tool when...",
+        read_file: "Use the read_file tool to...",
+      },  // Optional: Custom descriptions for filesystem tools
+    }),
+  ],
+});
+```
+
+
+#### Short-term vs. long-term filesystem
+
+By default, these tools write to a local "filesystem" in your graph state. To enable persistent storage across threads, configure a `CompositeBackend` that routes specific paths (like `/memories/`) to a `StoreBackend`.
+
+
+
+```typescript
+import { createAgent } from "langchain";
+import { createFilesystemMiddleware, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+import { InMemoryStore } from "@langchain/langgraph-checkpoint";
+
+const store = new InMemoryStore();
+
+const agent = createAgent({
+  model: "claude-sonnet-4-6",
+  store,
+  middleware: [
+    createFilesystemMiddleware({
+      backend: new CompositeBackend(
+        new StateBackend(),
+        { "/memories/": new StoreBackend() }
+      ),
+      systemPrompt: "Write to the filesystem when...", // Optional custom system prompt override
+      customToolDescriptions: {
+        ls: "Use the ls tool when...",
+        read_file: "Use the read_file tool to...",
+      }, // Optional: Custom descriptions for filesystem tools
+    }),
+  ],
+});
+```
+
+
+When you configure a `CompositeBackend` with a `StoreBackend` for `/memories/`, any files prefixed with **/memories/** are saved to persistent storage and survive across different threads. Files without this prefix remain in ephemeral state storage.
+
+### Subagent
+
+Handing off tasks to subagents isolates context, keeping the main (supervisor) agent's context window clean while still going deep on a task.
+
+The subagents middleware from [Deep Agents](/oss/javascript/deepagents/overview) allows you to supply subagents through a `task` tool.
+
+
+
+```typescript
+import { tool } from "langchain";
+import { createAgent } from "langchain";
+import { createSubAgentMiddleware } from "deepagents";
+import { z } from "zod";
+
+const getWeather = tool(
+  async ({ city }: { city: string }) => {
+    return `The weather in ${city} is sunny.`;
+  },
+  {
+    name: "get_weather",
+    description: "Get the weather in a city.",
+    schema: z.object({
+      city: z.string(),
+    }),
+  },
+);
+
+const agent = createAgent({
+  model: "claude-sonnet-4-6",
+  middleware: [
+    createSubAgentMiddleware({
+      defaultModel: "claude-sonnet-4-6",
+      defaultTools: [],
+      subagents: [
+        {
+          name: "weather",
+          description: "This subagent can get weather in cities.",
+          systemPrompt: "Use the get_weather tool to get the weather in a city.",
+          tools: [getWeather],
+          model: "gpt-5.5",
+          middleware: [],
+        },
+      ],
+    }),
+  ],
+});
+```
+
+
+A subagent is defined with a **name**, **description**, **system prompt**, and **tools**. You can also provide a subagent with a custom **model**, or with additional **middleware**. This can be particularly useful when you want to give the subagent an additional state key to share with the main agent.
+
+For more complex use cases, you can also provide your own prebuilt LangGraph graph as a subagent.
+
+
+
+```typescript
+import { tool, createAgent } from "langchain";
+import { createSubAgentMiddleware, type SubAgent } from "deepagents";
+import { z } from "zod";
+
+const getWeather = tool(
+  async ({ city }: { city: string }) => {
+    return `The weather in ${city} is sunny.`;
+  },
+  {
+    name: "get_weather",
+    description: "Get the weather in a city.",
+    schema: z.object({
+      city: z.string(),
+    }),
+  },
+);
+
+const weatherSubagent: SubAgent = {
+  name: "weather",
+  description: "This subagent can get weather in cities.",
+  systemPrompt: "Use the get_weather tool to get the weather in a city.",
+  tools: [getWeather],
+  model: "gpt-5.5",
+  middleware: [],
+};
+
+const agent = createAgent({
+  model: "claude-sonnet-4-6",
+  middleware: [
+    createSubAgentMiddleware({
+      defaultModel: "claude-sonnet-4-6",
+      defaultTools: [],
+      subagents: [weatherSubagent],
+    }),
+  ],
+});
+```
+
+
+In addition to any user-defined subagents, the main agent has access to a `general-purpose` subagent at all times. This subagent has the same instructions as the main agent and all the tools it has access to. The primary purpose of the `general-purpose` subagent is context isolation—the main agent can delegate a complex task to this subagent and get a concise answer back without bloat from intermediate tool calls.
+
+
+
 ## Provider-specific middleware
 
 These middleware are optimized for specific LLM providers. See each provider's documentation for full details and examples.
@@ -1260,17 +1521,22 @@ These middleware are optimized for specific LLM providers. See each provider's d
 
 
 
-    <Card title="Anthropic" href="/oss/javascript/integrations/middleware/anthropic" icon="anthropic" arrow>
+    <Card title="Anthropic" href="/oss/javascript/integrations/middleware/anthropic" icon="/images/providers/anthropic-icon.svg" arrow>
         Prompt caching, bash tool, text editor, memory, and file search middleware for Claude models.
+    </Card>
+    <Card title="AWS" href="/oss/javascript/integrations/middleware/aws" icon="brand-aws" arrow>
+        Prompt caching middleware for Amazon Bedrock models.
     </Card>
 
 </Columns>
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/langchain/middleware/built-in.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

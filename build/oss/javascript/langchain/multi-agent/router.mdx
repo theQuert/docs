@@ -2,7 +2,7 @@
 title: Router
 ---
 
-In the **router** architecture, a routing step classifies input and directs it to specialized [agents](/oss/javascript/langchain/agents). This is useful when you have distinct **verticals**—separate knowledge domains that each require their own agent.
+In the **router** architecture, a routing step classifies input and directs it to specialized [agents](/oss/javascript/langchain/agents). This is useful when you have distinct **verticals** (separate knowledge domains that each require their own agent).
 
 ```mermaid
 graph LR
@@ -14,6 +14,12 @@ graph LR
     D --> F
     E --> F
     F --> G([Combined answer])
+
+    classDef trigger fill:#F6FFDB,stroke:#6E8900,stroke-width:2px,color:#2E3900
+    classDef process fill:#E5F4FF,stroke:#006DDD,stroke-width:2px,color:#030710
+
+    class A,G trigger
+    class B,C,D,E,F process
 ```
 
 ## Key characteristics
@@ -37,20 +43,21 @@ Use `Command` to route to a single specialized agent:
 
 
 ```typescript
+import { z } from "zod";
 import { Command } from "@langchain/langgraph";
 
-interface ClassificationResult {
-  query: string;
-  agent: string;
-}
+const ClassificationResult = z.object({
+  query: z.string(),
+  agent: z.string(),
+});
 
-function classifyQuery(query: string): ClassificationResult {
+function classifyQuery(query: string): z.infer<typeof ClassificationResult> {
   // Use LLM to classify query and determine the appropriate agent
   // Classification logic here
   ...
 }
 
-function routeQuery(state: typeof State.State) {
+function routeQuery(state: z.infer<typeof ClassificationResult>) {
   const classification = classifyQuery(state.query);
 
   // Route to the selected agent
@@ -66,15 +73,16 @@ Use `Send` to fan out to multiple specialized agents in parallel:
 
 
 ```typescript
-import { Send } from "@langchain/langgraph";
+import { z } from "zod";
+import { Command } from "@langchain/langgraph";
 
-interface ClassificationResult {
-  query: string;
-  agent: string;
-}
+const ClassificationResult = z.object({
+  query: z.string(),
+  agent: z.string(),
+});
 
-function classifyQuery(query: string): ClassificationResult[] {
-  // Use LLM to classify query and determine which agents to invoke
+function classifyQuery(query: string): z.infer<typeof ClassificationResult>[] {
+  // Use LLM to classify query and determine the appropriate agent
   // Classification logic here
   ...
 }
@@ -113,7 +121,7 @@ Each request is routed independently—no memory between calls. For multi-turn c
 **Router vs. Subagents**: Both patterns can dispatch work to multiple agents, but they differ in how routing decisions are made:
 
 - **Router**: A dedicated routing step (often a single LLM call or rule-based logic) that classifies the input and dispatches to agents. The router itself typically doesn't maintain conversation history or perform multi-turn orchestration—it's a preprocessing step.
-- **Subagents**: An main supervisor agent dynamically decides which [subagents](/oss/javascript/langchain/multi-agent/subagents) to call as part of an ongoing conversation. The main agent maintains context, can call multiple subagents across turns, and orchestrates complex multi-step workflows.
+- **Subagents**: A main supervisor agent dynamically decides which [subagents](/oss/javascript/langchain/multi-agent/subagents) to call as part of an ongoing conversation. The main agent maintains context, can call multiple subagents across turns, and orchestrates complex multi-step workflows.
 
 Use a **router** when you have clear input categories and want deterministic or lightweight classification. Use a **supervisor** when you need flexible, conversation-aware orchestration where the LLM decides what to do next based on evolving context.
 </Tip>
@@ -131,15 +139,15 @@ The simplest approach: wrap the stateless router as a tool that a conversational
 ```typescript
 const searchDocs = tool(
   async ({ query }) => {
-    const result = await workflow.invoke({ query });  // [!code highlight]
+    const result = await workflow.invoke({ query }); // [!code highlight]
     return result.finalAnswer;
   },
   {
     name: "search_docs",
     description: "Search across multiple documentation sources",
     schema: z.object({
-      query: z.string().describe("The search query")
-    })
+      query: z.string().describe("The search query"),
+    }),
   }
 );
 
@@ -147,7 +155,7 @@ const searchDocs = tool(
 const conversationalAgent = createAgent({
   model,
   tools: [searchDocs],
-  prompt: "You are a helpful assistant. Use search_docs to answer questions."
+  systemPrompt: "You are a helpful assistant. Use search_docs to answer questions.",
 });
 ```
 
@@ -162,9 +170,11 @@ If you need the router itself to maintain state, use [persistence](/oss/javascri
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/langchain/multi-agent/router.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

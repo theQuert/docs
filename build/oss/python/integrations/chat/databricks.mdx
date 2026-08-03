@@ -1,10 +1,21 @@
 ---
-title: ChatDatabricks
+title: ChatDatabricks integration
+description: Integrate with the ChatDatabricks chat model using LangChain Python.
+integration:
+  name: ChatDatabricks
+  pypi: databricks-langchain
+  featured: true
+  stream: true
+  tool_calling: true
+  structured_output: true
+  multimodal: false
 ---
+
+
 
 > [Databricks](https://www.databricks.com/) Lakehouse Platform unifies data, analytics, and AI on one platform.
 
-This guide provides a quick overview for getting started with Databricks [chat models](/oss/python/langchain/models). For detailed documentation of all ChatDatabricks features and configurations head to the [API reference](https://python.langchain.com/api_reference/community/chat_models/langchain_community.chat_models.databricks.ChatDatabricks.html).
+This guide provides a quick overview for getting started with Databricks [chat models](/oss/python/langchain/models).
 
 ## Overview
 
@@ -14,7 +25,7 @@ This guide provides a quick overview for getting started with Databricks [chat m
 
 | Class | Package | Serializable | Downloads | Version |
 | :--- | :--- | :---: |  :---: | :---: |
-| [ChatDatabricks](https://python.langchain.com/api_reference/community/chat_models/langchain_community.chat_models.databricks.ChatDatabricks.html) | [databricks-langchain](https://python.langchain.com/docs/integrations/providers/databricks/) | beta | ![PyPI - Downloads](https://img.shields.io/pypi/dm/langchain-databricks?style=flat-square&label=%20) | ![PyPI - Version](https://img.shields.io/pypi/v/langchain-databricks?style=flat-square&label=%20) |
+| `ChatDatabricks` | `databricks-langchain` | beta | ![PyPI - Downloads](https://img.shields.io/pypi/dm/langchain-databricks?style=flat-square&label=%20) | ![PyPI - Version](https://img.shields.io/pypi/v/langchain-databricks?style=flat-square&label=%20) |
 
 ### Model features
 
@@ -22,11 +33,11 @@ This guide provides a quick overview for getting started with Databricks [chat m
 | :---: | :---: | :---: |  :---: | :---: | :---: | :---: | :---: | :---: |
 | ✅ | ✅ | ❌ | ❌ | ❌ |  ✅ | ✅ | ✅ | ❌ |
 
-### Supported Methods
+### Supported methods
 
 `ChatDatabricks` supports all methods of `ChatModel` including async APIs.
 
-### Endpoint Requirement
+### Endpoint requirement
 
 The serving endpoint `ChatDatabricks` wraps must have OpenAI-compatible chat input/output format ([reference](https://mlflow.org/docs/latest/llms/deployments/index.html#chat)). As long as the input format is compatible, `ChatDatabricks` can be used for any endpoint type hosted on [Databricks Model Serving](https://docs.databricks.com/en/machine-learning/model-serving/index.html):
 
@@ -39,7 +50,7 @@ your choice of framework such as LangChain, Pytorch, Transformers, etc.
 
 To access Databricks models you'll need to create a Databricks account, set up credentials (only if you are outside Databricks workspace), and install required packages.
 
-### Credentials (only if you are outside Databricks)
+### Credentials (only if you are outside databricks)
 
 If you are running LangChain app inside Databricks, you can skip this step.
 
@@ -81,7 +92,6 @@ chat_model = ChatDatabricks(
     endpoint="databricks-dbrx-instruct",
     temperature=0.1,
     max_tokens=256,
-    # See https://python.langchain.com/api_reference/community/chat_models/langchain_community.chat_models.databricks.ChatDatabricks.html for other supported parameters
 )
 ```
 
@@ -141,15 +151,16 @@ AIMessage(content="Unity Catalog is a new data catalog feature in Databricks tha
 ## Invocation (streaming)
 
 ```python
-for chunk in chat_model.stream("How are you?"):
-    print(chunk.content, end="|")
+stream = chat_model.stream_events("How are you?", version="v3")
+for token in stream.text:
+    print(token, end="|")
 ```
 
 ```text
-I|'m| an| AI| and| don|'t| have| feelings|,| but| I|'m| here| and| ready| to| assist| you|.| How| can| I| help| you| today|?||
+I|'m| an| AI| and| don|'t| have| feelings|,| but| I|'m| here| and| ready| to| assist| you|.| How| can| I| help| you| today|?|
 ```
 
-## Async Invocation
+## Async invocation
 
 ```python
 import asyncio
@@ -182,13 +193,13 @@ from pydantic import BaseModel, Field
 class GetWeather(BaseModel):
     """Get the current weather in a given location"""
 
-    location: str = Field(..., description="The city and state, e.g. San Francisco, CA")
+    location: str = Field(description="The city and state, e.g. San Francisco, CA")
 
 
 class GetPopulation(BaseModel):
     """Get the current population in a given location"""
 
-    location: str = Field(..., description="The city and state, e.g. San Francisco, CA")
+    location: str = Field(description="The city and state, e.g. San Francisco, CA")
 
 
 llm_with_tools = chat_model.bind_tools([GetWeather, GetPopulation])
@@ -198,7 +209,7 @@ ai_msg = llm_with_tools.invoke(
 print(ai_msg.tool_calls)
 ```
 
-## Wrapping Custom Model Endpoint
+## Wrapping custom model endpoint
 
 Prerequisites:
 
@@ -217,7 +228,7 @@ chat_model_custom = ChatDatabricks(
 chat_model_custom.invoke("How are you?")
 ```
 
-## Wrapping External Models
+## Wrapping external models
 
 Prerequisite: Create Proxy Endpoint
 
@@ -271,7 +282,7 @@ chat_model_external = ChatDatabricks(
 chat_model_external.invoke("How to use Databricks?")
 ```
 
-## Function calling on Databricks
+## Function calling on databricks
 
 Databricks Function Calling is OpenAI-compatible and is only available during model serving as part of Foundation Model APIs.
 
@@ -313,13 +324,15 @@ See [Databricks Unity Catalog](/oss/python/integrations/tools/databricks) about 
 
 ## API reference
 
-For detailed documentation of all ChatDatabricks features and configurations head to the API reference: [api-docs.databricks.com/python/databricks-ai-bridge/latest/databricks_langchain.html#databricks_langchain.ChatDatabricks](https://api-docs.databricks.com/python/databricks-ai-bridge/latest/databricks_langchain.html#databricks_langchain.ChatDatabricks)
+For detailed documentation of all `ChatDatabricks` features and configurations head to the API reference: [api-docs.databricks.com/python/databricks-ai-bridge/latest/databricks_langchain.html#databricks_langchain.ChatDatabricks](https://api-docs.databricks.com/python/databricks-ai-bridge/latest/databricks_langchain.html#databricks_langchain.ChatDatabricks)
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/python/integrations/chat/databricks.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

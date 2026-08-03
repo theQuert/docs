@@ -3,12 +3,12 @@ title: Build a multi-source knowledge base with routing
 sidebarTitle: "Router: Knowledge base"
 ---
 
-import ChatModelTabsPy from '/snippets/chat-model-tabs.mdx';
-import ChatModelTabsJs from '/snippets/chat-model-tabs-js.mdx';
+import ChatModelTabsPy from '/snippets/javascript/chat-model-tabs.mdx';
+import ChatModelTabsJs from '/snippets/javascript/chat-model-tabs-js.mdx';
 
 ## Overview
 
-The **router pattern** is a [multi-agent](/oss/javascript/langchain/multi-agent) architecture where a routing step classifies input and directs it to specialized agents, with results synthesized into a combined response. This pattern excels when your organization's knowledge lives across distinct **verticals**—separate knowledge domains that each require their own agent with specialized tools and prompts.
+The **router pattern** is a [multi-agent](/oss/javascript/langchain/multi-agent) architecture where a routing step classifies input and directs it to specialized agents, with results synthesized into a combined response. This pattern excels when your organization's knowledge lives across distinct **verticals** (separate knowledge domains that each require their own agent with specialized tools and prompts).
 
 In this tutorial, you'll build a multi-source knowledge base router that demonstrates these benefits through a realistic enterprise scenario. The system will coordinate three specialists:
 
@@ -28,6 +28,12 @@ graph LR
     D --> F
     E --> F
     F --> G([Combined answer])
+
+    classDef trigger fill:#F6FFDB,stroke:#6E8900,stroke-width:2px,color:#2E3900
+    classDef process fill:#E5F4FF,stroke:#006DDD,stroke-width:2px,color:#030710
+
+    class A,G trigger
+    class B,C,D,E,F process
 ```
 
 ### Why use a router?
@@ -45,8 +51,8 @@ The router pattern provides several advantages:
 We will cover the following concepts:
 
 - [Multi-agent systems](/oss/javascript/langchain/multi-agent)
-- [StateGraph](/oss/javascript/langchain/graphs) for workflow orchestration
-- [Send API](/oss/javascript/langchain/send) for parallel execution
+- [StateGraph](/oss/javascript/langgraph/graph-api) for workflow orchestration
+- [Send API](/oss/javascript/langgraph/graph-api#send) for parallel execution
 
 <Tip>
 **Router vs. Subagents**: The [subagents pattern](/oss/javascript/langchain/multi-agent/subagents) can also route to multiple agents. Use the router pattern when you need specialized preprocessing, custom routing logic, or want explicit control over parallel execution. Use the subagents pattern when you want the LLM to decide which agents to call dynamically.
@@ -77,16 +83,16 @@ For more details, see our [Installation guide](/oss/javascript/langchain/install
 
 ### LangSmith
 
-Set up [LangSmith](https://smith.langchain.com) to inspect what is happening inside your agent. Then set the following environment variables:
+Set up [LangSmith](https://smith.langchain.com?utm_source=docs&utm_medium=cta&utm_campaign=langsmith-signup&utm_content=oss-langchain-multi-agent-router-knowledge-base) to inspect what is happening inside your agent. Then set the following environment variables:
 
 
 
 <CodeGroup>
-```bash bash
+```bash Shell
 export LANGSMITH_TRACING="true"
 export LANGSMITH_API_KEY="..."
 ```
-```typescript typescript
+```typescript TypeScript
 process.env.LANGSMITH_TRACING = "true";
 process.env.LANGSMITH_API_KEY = "...";
 ```
@@ -113,33 +119,27 @@ First, define the state schemas. We use three types:
 
 
 ```typescript
-import { Annotation } from "@langchain/langgraph";
+import { StateSchema, ReducedValue } from "@langchain/langgraph";
+import { z } from "zod/v4";
 
-// Simple input state for each subagent
-interface AgentInput {
-  query: string;
-}
+const AgentOutput = z.object({
+  source: z.string(),
+  result: z.string(),
+});
 
-// Output from each subagent
-interface AgentOutput {
-  source: string;
-  result: string;
-}
-
-// A single routing decision
-interface Classification {
-  source: "github" | "notion" | "slack";
-  query: string;
-}
-
-const RouterState = Annotation.Root({
-  query: Annotation<string>(),
-  classifications: Annotation<Classification[]>(),
-  results: Annotation<AgentOutput[]>({
-    reducer: (current, update) => current.concat(update),  // Collect parallel results
-    default: () => [],
-  }),
-  finalAnswer: Annotation<string>(),
+const RouterState = new StateSchema({
+  query: z.string(),
+  classifications: z.array(
+    z.object({
+      source: z.enum(["github", "notion", "slack"]),
+      query: z.string(),
+    })
+  ),
+  results: new ReducedValue(
+    z.array(AgentOutput).default(() => []),
+    { reducer: (current, update) => current.concat(update) }
+  ),
+  finalAnswer: z.string(),
 });
 ```
 
@@ -260,7 +260,7 @@ Create an agent for each vertical. Each agent has domain-specific tools and a pr
 import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 
-const llm = new ChatOpenAI({ model: "gpt-4o" });
+const llm = new ChatOpenAI({ model: "gpt-5.5" });
 
 const githubAgent = createAgent({
   model: llm,
@@ -309,7 +309,7 @@ Now build the router workflow using a StateGraph. The workflow has four main ste
 import { StateGraph, START, END, Send } from "@langchain/langgraph";
 import { z } from "zod";
 
-const routerLlm = new ChatOpenAI({ model: "gpt-4o-mini" });
+const routerLlm = new ChatOpenAI({ model: "gpt-5.4-mini" });
 
 
 // Define structured output schema for the classifier
@@ -498,16 +498,19 @@ The `classify_query` function uses **structured output** to analyze the user's q
 
 This structured approach is more reliable than free-form JSON parsing and makes the routing logic explicit.
 
-### Parallel execution with Send
+### Parallel execution with send
 
 The `route_to_agents` function maps classifications to `Send` objects. Each `Send` specifies the target node and the state to pass:
 
-```python
-# Classifications: [{"source": "github", "query": "..."}, {"source": "notion", "query": "..."}]
-# Becomes:
-[Send("github", {"query": "..."}), Send("notion", {"query": "..."})]
-# Both agents execute simultaneously, each receiving only the query it needs
+
+
+```typescript
+// Classifications: [{ source: "github", query: "..." }, { source: "notion", query: "..." }]
+// Becomes:
+[new Send("github", { query: "..." }), new Send("notion", { query: "..." })]
+// Both agents execute simultaneously, each receiving only the query it needs
 ```
+
 
 Each agent node receives a simple `AgentInput` with just a `query` field—not the full router state. This keeps the interface clean and explicit.
 
@@ -515,9 +518,12 @@ Each agent node receives a simple `AgentInput` with just a `query` field—not t
 
 Agent results flow back to the main state via a **reducer**. Each agent returns:
 
-```python
-{"results": [{"source": "github", "result": "..."}]}
+
+
+```typescript
+{ results: [{ source: "github", result: "..." }] }
 ```
+
 
 The reducer (`operator.add` in Python) concatenates these lists, collecting all parallel results into `state["results"]`.
 
@@ -530,7 +536,7 @@ After all agents complete, the `synthesize_results` function iterates over the c
 - Combines information from all sources without redundancy
 
 <Note>
-**Partial results**: In this tutorial, all selected agents must complete before synthesis. For more advanced patterns where you want to handle partial results or timeouts, see the [map-reduce guide](/oss/javascript/langchain/map-reduce).
+**Partial results**: In this tutorial, all selected agents must complete before synthesis.
 </Note>
 
 ## 8. Complete working example
@@ -549,49 +555,30 @@ Here's everything together in a runnable script:
  * A router classifies queries, routes them to specialized agents in parallel,
  * and synthesizes results into a combined response.
  */
+import { z } from "zod/v4";
+import { tool } from "langchain";
+import { StateGraph, START, END, Send, StateSchema, ReducedValue } from "@langchain/langgraph";
 
-import { tool, createAgent } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
-import { StateGraph, Annotation, START, END, Send } from "@langchain/langgraph";
-import { z } from "zod";
-
-
-// Type definitions
-interface AgentInput {
-  query: string;
-}
-
-interface AgentOutput {
-  source: string;
-  result: string;
-}
-
-interface Classification {
-  source: "github" | "notion" | "slack";
-  query: string;
-}
-
-// State definition with reducer for collecting parallel results
-const RouterState = Annotation.Root({
-  query: Annotation<string>(),
-  classifications: Annotation<Classification[]>(),
-  results: Annotation<AgentOutput[]>({
-    reducer: (current, update) => current.concat(update),
-    default: () => [],
-  }),
-  finalAnswer: Annotation<string>(),
+const AgentOutput = z.object({
+  source: z.string(),
+  result: z.string(),
 });
 
-// Structured output schema for classifier
-const ClassificationResultSchema = z.object({
-  classifications: z.array(z.object({
-    source: z.enum(["github", "notion", "slack"]),
-    query: z.string(),
-  })).describe("List of agents to invoke with their targeted sub-questions"),
+const RouterState = new StateSchema({
+  query: z.string(),
+  classifications: z.array(
+    z.object({
+      source: z.enum(["github", "notion", "slack"]),
+      query: z.string(),
+    })
+  ),
+  results: new ReducedValue(
+    z.array(AgentOutput).default(() => []),
+    { reducer: (current, update) => current.concat(update) }
+  ),
+  finalAnswer: z.string(),
 });
 
-
-// Tools
 const searchCode = tool(
   async ({ query, repo }) => {
     return `Found code matching '${query}' in ${repo || "main"}: authentication middleware in src/auth.py`;
@@ -684,10 +671,10 @@ const getThread = tool(
   }
 );
 
+import { createAgent } from "langchain";
+import { ChatOpenAI } from "@langchain/openai";
 
-// Models and agents
-const llm = new ChatOpenAI({ model: "gpt-4o" });
-const routerLlm = new ChatOpenAI({ model: "gpt-4o-mini" });
+const llm = new ChatOpenAI({ model: "gpt-5.5" });
 
 const githubAgent = createAgent({
   model: llm,
@@ -719,10 +706,25 @@ shared knowledge and solutions.
   `.trim(),
 });
 
+const routerLlm = new ChatOpenAI({ model: "gpt-5.4-mini" });
 
-// Workflow nodes
+// Define structured output schema for the classifier
+const ClassificationResultSchema = z.object({
+  // [!code highlight]
+  classifications: z
+    .array(
+      z.object({
+        source: z.enum(["github", "notion", "slack"]),
+        query: z.string(),
+      })
+    )
+    .describe("List of agents to invoke with their targeted sub-questions"),
+});
+
 async function classifyQuery(state: typeof RouterState.State) {
-  const structuredLlm = routerLlm.withStructuredOutput(ClassificationResultSchema);
+  const structuredLlm = routerLlm.withStructuredOutput(
+    ClassificationResultSchema
+  ); // [!code highlight]
 
   const result = await structuredLlm.invoke([
     {
@@ -735,9 +737,15 @@ Available sources:
 - notion: Internal documentation, processes, policies, team wikis
 - slack: Team discussions, informal knowledge sharing, recent conversations
 
-Return ONLY the sources that are relevant to the query.`
+Return ONLY the sources that are relevant to the query. Each source should have
+a targeted sub-question optimized for that specific knowledge domain.
+
+Example for "How do I authenticate API requests?":
+- github: "What authentication code exists? Search for auth middleware, JWT handling"
+- notion: "What authentication documentation exists? Look for API auth guides"
+(slack omitted because it's not relevant for this technical question)`,
     },
-    { role: "user", content: state.query }
+    { role: "user", content: state.query },
   ]);
 
   return { classifications: result.classifications };
@@ -745,29 +753,35 @@ Return ONLY the sources that are relevant to the query.`
 
 function routeToAgents(state: typeof RouterState.State): Send[] {
   return state.classifications.map(
-    (c) => new Send(c.source, { query: c.query })
+    (c) => new Send(c.source, { query: c.query }) // [!code highlight]
   );
 }
 
-async function queryGithub(state: AgentInput) {
+async function queryGithub(state: typeof RouterState.State) {
   const result = await githubAgent.invoke({
-    messages: [{ role: "user", content: state.query }]
+    messages: [{ role: "user", content: state.query }], // [!code highlight]
   });
-  return { results: [{ source: "github", result: result.messages.at(-1)?.content }] };
+  return {
+    results: [{ source: "github", result: result.messages.at(-1)?.content }],
+  };
 }
 
-async function queryNotion(state: AgentInput) {
+async function queryNotion(state: typeof RouterState.State) {
   const result = await notionAgent.invoke({
-    messages: [{ role: "user", content: state.query }]
+    messages: [{ role: "user", content: state.query }], // [!code highlight]
   });
-  return { results: [{ source: "notion", result: result.messages.at(-1)?.content }] };
+  return {
+    results: [{ source: "notion", result: result.messages.at(-1)?.content }],
+  };
 }
 
-async function querySlack(state: AgentInput) {
+async function querySlack(state: typeof RouterState.State) {
   const result = await slackAgent.invoke({
-    messages: [{ role: "user", content: state.query }]
+    messages: [{ role: "user", content: state.query }], // [!code highlight]
   });
-  return { results: [{ source: "slack", result: result.messages.at(-1)?.content }] };
+  return {
+    results: [{ source: "slack", result: result.messages.at(-1)?.content }],
+  };
 }
 
 async function synthesizeResults(state: typeof RouterState.State) {
@@ -775,8 +789,10 @@ async function synthesizeResults(state: typeof RouterState.State) {
     return { finalAnswer: "No results found from any knowledge source." };
   }
 
+  // Format results for synthesis
   const formatted = state.results.map(
-    (r) => `**From ${r.source.charAt(0).toUpperCase() + r.source.slice(1)}:**\n${r.result}`
+    (r) =>
+      `**From ${r.source.charAt(0).toUpperCase() + r.source.slice(1)}:**\n${r.result}`
   );
 
   const synthesisResponse = await routerLlm.invoke([
@@ -787,16 +803,14 @@ async function synthesizeResults(state: typeof RouterState.State) {
 - Combine information from multiple sources without redundancy
 - Highlight the most relevant and actionable information
 - Note any discrepancies between sources
-- Keep the response concise and well-organized`
+- Keep the response concise and well-organized`,
     },
-    { role: "user", content: formatted.join("\n\n") }
+    { role: "user", content: formatted.join("\n\n") },
   ]);
 
   return { finalAnswer: synthesisResponse.content };
 }
 
-
-// Build workflow
 const workflow = new StateGraph(RouterState)
   .addNode("classify", classifyQuery)
   .addNode("github", queryGithub)
@@ -811,9 +825,8 @@ const workflow = new StateGraph(RouterState)
   .addEdge("synthesize", END)
   .compile();
 
-
 const result = await workflow.invoke({
-  query: "How do I authenticate API requests?"
+  query: "How do I authenticate API requests?",
 });
 
 console.log("Original query:", result.query);
@@ -821,7 +834,7 @@ console.log("\nClassifications:");
 for (const c of result.classifications) {
   console.log(`  ${c.source}: ${c.query}`);
 }
-console.log("\n" + "=".repeat(60) + "\n");
+console.log(`\n${"=".repeat(60)}\n`);
 console.log("Final Answer:");
 console.log(result.finalAnswer);
 ```
@@ -831,7 +844,7 @@ console.log(result.finalAnswer);
 
 ## 9. Advanced: Stateful routers
 
-The router we've built so far is **stateless**—each request is handled independently with no memory between calls. For multi-turn conversations, you need a **stateful** approach.
+The router we've built so far is **stateless** (each request is handled independently with no memory between calls). For multi-turn conversations, you need a **stateful** approach.
 
 ### Tool wrapper approach
 
@@ -876,18 +889,28 @@ This approach keeps the router stateless while the conversational agent handles 
 
 ```typescript
 const config = { configurable: { thread_id: "user-123" } };
-
-let result = await conversationalAgent.invoke(
-  { messages: [{ role: "user", content: "How do I authenticate API requests?" }] },
+let conversationalAgentResult = await conversationalAgent.invoke(
+  {
+    messages: [
+      { role: "user", content: "How do I authenticate API requests?" },
+    ],
+  },
   config
 );
-console.log(result.messages.at(-1)?.content);
+console.log(conversationalAgentResult.messages.at(-1)?.content);
 
-result = await conversationalAgent.invoke(
-  { messages: [{ role: "user", content: "What about rate limiting for those endpoints?" }] },
+conversationalAgentResult = await conversationalAgent.invoke(
+  {
+    messages: [
+      {
+        role: "user",
+        content: "What about rate limiting for those endpoints?",
+      },
+    ],
+  },
   config
 );
-console.log(result.messages.at(-1)?.content);
+console.log(conversationalAgentResult.messages.at(-1)?.content);
 ```
 
 
@@ -926,13 +949,15 @@ For simpler cases with dynamic tool selection, consider the [subagents pattern](
 - Learn about [handoffs](/oss/javascript/langchain/multi-agent/handoffs) for agent-to-agent conversations
 - Explore the [subagents pattern](/oss/javascript/langchain/multi-agent/subagents-personal-assistant) for centralized orchestration
 - Read the [multi-agent overview](/oss/javascript/langchain/multi-agent) to compare different patterns
-- Use [LangSmith](https://smith.langchain.com) to debug and monitor your router
+- Use [LangSmith](https://smith.langchain.com?utm_source=docs&utm_medium=cta&utm_campaign=langsmith-signup&utm_content=oss-langchain-multi-agent-router-knowledge-base) to debug and monitor your router
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/langchain/multi-agent/router-knowledge-base.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

@@ -1,6 +1,11 @@
 ---
-title: Neo4j
+title: Neo4j integration
+description: Integrate with the Neo4j graph using LangChain Python.
+integration:
+  name: Neo4j
+  pypi: langchain-neo4j
 ---
+
 
 >[Neo4j](https://neo4j.com/docs/getting-started/) is a graph database management system developed by `Neo4j, Inc`.
 
@@ -252,7 +257,7 @@ RETURN a.name
   {'a.name': 'Meg Ryan'}]}
 ```
 
-## Add examples in the Cypher generation prompt
+## Add examples in the cypher generation prompt
 
 You can define the Cypher statement you want the LLM to generate for particular questions
 
@@ -309,7 +314,7 @@ Full Context:
  'result': 'There were 4 actors in Top Gun.'}
 ```
 
-## Use separate LLMs for Cypher and answer generation
+## Use separate LLMs for cypher and answer generation
 
 You can use the `cypher_llm` and `qa_llm` parameters to define different llms
 
@@ -372,7 +377,7 @@ Relationship properties are the following:
 The relationships are the following:
 ```
 
-## Validate generated Cypher statements
+## Validate generated cypher statements
 
 You can use the `validate_cypher` parameter to validate and correct relationship directions in generated Cypher statements
 
@@ -475,9 +480,11 @@ Full Context:
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/python/integrations/graphs/neo4j_cypher.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>

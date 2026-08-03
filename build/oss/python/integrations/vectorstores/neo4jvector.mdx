@@ -1,6 +1,13 @@
 ---
-title: Neo4j Vector Index
+title: Neo4j vector index integration
+description: Integrate with the Neo4j vector index vector store using LangChain Python.
+integration:
+  name: Neo4j vector index
+  pypi: langchain-neo4j
 ---
+
+
+import LangchainCommunityUnmaintained from '/snippets/python/oss/langchain-community-unmaintained.mdx';
 
 >[Neo4j](https://neo4j.com/) is an open-source graph database with integrated support for vector similarity search
 
@@ -35,6 +42,8 @@ if "OPENAI_API_KEY" not in os.environ:
 OpenAI API Key: ········
 ```
 
+<LangchainCommunityUnmaintained />
+
 ```python
 from langchain_community.document_loaders import TextLoader
 from langchain_core.documents import Document
@@ -66,7 +75,7 @@ password = "password"
 # os.environ["NEO4J_PASSWORD"] = "pleaseletmein"
 ```
 
-## Similarity Search with Cosine Distance (Default)
+## Similarity search with cosine distance (Default)
 
 ```python
 # The Neo4jVector Module will connect to Neo4j and create a vector index if needed.
@@ -423,7 +432,7 @@ retriever.invoke(query)[0]
 Document(page_content='Tonight. I call on the Senate to: Pass the Freedom to Vote Act. Pass the John Lewis Voting Rights Act. And while you’re at it, pass the Disclose Act so Americans can know who is funding our elections. \n\nTonight, I’d like to honor someone who has dedicated his life to serve this country: Justice Stephen Breyer—an Army veteran, Constitutional scholar, and retiring Justice of the United States Supreme Court. Justice Breyer, thank you for your service. \n\nOne of the most serious constitutional responsibilities a President has is nominating someone to serve on the United States Supreme Court. \n\nAnd I did that 4 days ago, when I nominated Circuit Court of Appeals Judge Ketanji Brown Jackson. One of our nation’s top legal minds, who will continue Justice Breyer’s legacy of excellence.', metadata={'source': '../../how_to/state_of_the_union.txt'})
 ```
 
-## Question Answering with Sources
+## Question answering with sources
 
 This section goes over how to do question-answering with sources over an Index. It does this by using the `RetrievalQAWithSourcesChain`, which does the lookup of the documents from an Index.
 
@@ -456,9 +465,11 @@ chain.invoke(
 
 ---
 
-<Callout icon="pen-to-square" iconType="regular">
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
     [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss/python/integrations/vectorstores/neo4jvector.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
 </Callout>
-<Tip icon="terminal" iconType="regular">
-    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
-</Tip>
+</div>
